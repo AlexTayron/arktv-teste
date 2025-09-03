@@ -70,38 +70,62 @@ load_categories() {
     mapfile -t CATEGORIES < <(grep -oP 'group-title="[^"]+"' "$M3U_FILE" | sed -E 's/group-title="([^"]+)"/\1/' | sort -u)
 }
 
-choose_category() {
-    local options=()
-    local idx=1
-    for cat in "${CATEGORIES[@]}"; do
-        options+=("$idx" "$cat")
-        ((idx++))
-    done
-    options+=("0" "Sair")
 
+load_channels_list() {
+    declare -gA CHANNELS
+    CHANNEL_MENU_OPTIONS=()
+    local index=1
+    local name=""
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^#EXTINF ]]; then
+            name=$(echo "$line" | sed -E 's/.*,(.*)/\1/')
+            read -r url
+            CHANNEL_MENU_OPTIONS+=("$index" "$name")
+            CHANNELS["$index"]="$url"
+            ((index++))
+        fi
+    done < "$M3U_FILE"
+    CHANNEL_MENU_OPTIONS+=("0" "Sair")
+}
+
+choose_channel_list() {
     local choice
     choice=$(dialog --output-fd 1 \
         --backtitle "ArkTV" \
-        --title "Categorias" \
-        --menu "Escolha uma categoria:" 20 60 15 \
-        "${options[@]}" \
+        --title "Canais" \
+        --menu "Escolha um canal:" 20 70 15 \
+        "${CHANNEL_MENU_OPTIONS[@]}" \
         2>"$CURR_TTY")
 
     if [[ -z "$choice" || "$choice" == "0" ]]; then
         ExitMenu
     fi
 
-    CATEGORY="${CATEGORIES[$((choice-1))]}"
+    play_channel_list "$choice"
 }
 
-load_channels_by_category() {
-    declare -gA CHANNELS
-    CHANNEL_MENU_OPTIONS=()
-    local index=1
-    local name=""
+play_channel_list() {
+    local idx="$1"
+    local url="${CHANNELS[$idx]}"
+    local name="${CHANNEL_MENU_OPTIONS[$(( ($idx-1)*2 + 1 ))]}"
 
-    while IFS= read -r line; do
-        if [[ "$line" =~ ^#EXTINF.*group-title="$CATEGORY" ]]; then
+    dialog --infobox "Iniciando canal: $name..." 3 50 > "$CURR_TTY"
+    sleep 1
+
+    /usr/bin/mpv --fullscreen --geometry=640x480 --hwdec=auto --vo=drm --input-ipc-server="$MPV_SOCKET" "$url" >/dev/null 2>&1
+
+    ExitMenu
+}
+
+# --- Main execution ---
+trap ExitMenu EXIT SIGINT SIGTERM
+printf "\033c" > "$CURR_TTY"
+printf "\e[?25l" > "$CURR_TTY" # Hide cursor
+
+check_and_install_dependencies
+fetch_m3u_file
+load_channels_list
+choose_channel_list
             name=$(echo "$line" | sed -E 's/.*,(.*)/\1/')
             read -r url
             CHANNEL_MENU_OPTIONS+=("$index" "$name")
