@@ -16,7 +16,7 @@ set -euo pipefail
 CURR_TTY="/dev/tty1"
 MPV_SOCKET="/tmp/mpvsocket"
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-M3U_URL="https://github.com/AlexTayron/arktv-teste/tree/main/channels/canais.m3u"
+M3U_URL="https://raw.githubusercontent.com/AlexTayron/arktv-teste/refs/heads/main/channels/canais.m3u
 M3U_FILE="/tmp/canais.m3u"
 
 # --- Functions ---
